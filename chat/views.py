@@ -71,34 +71,108 @@ class UserMessagesAPIView(generics.ListAPIView):
 #         return Response(response_data)
 
 
+# class ChatListAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request, *args, **kwargs):
+#         user_profile = UserProfile.objects.get(name= 'Sarah Park')
+
+#         # Get chat list for the user
+#         chat_list = Chat.objects.filter(participants=user_profile).order_by('-id')
+
+#         # Prepare the response data
+#         response_data = []
+#         for chat in chat_list:
+#             chat_data = {
+#                 'chat_id': chat.chat_id,
+#                 'messages': []
+#             }
+
+#             for message in chat.messages.all():
+#                 message_data = {
+#                     'message': message.content,
+#                     'timestamp': message.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+#                     'user_id': message.sender.user.id,
+#                     'username': message.sender.name,
+#                     'profile_pic': request.build_absolute_uri(message.sender.profile_pic.url) if message.sender.profile_pic else None,
+#                 }
+
+#                 chat_data['messages'].append(message_data)
+
+#             response_data.append(chat_data)
+
+#         return Response(response_data)
+
+# class ChatListAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request, *args, **kwargs):
+#         user_profile = UserProfile.objects.get(name='Sarah Park')
+
+#         # Get chat list for the user
+#         chat_list = Chat.objects.filter(participants=user_profile).order_by('-id')
+
+#         # Prepare the response data
+#         response_data = []
+#         for chat in chat_list:
+#             chat_data = {
+#                 'chat_id': chat.chat_id,
+#                 'user_name': user_profile.name,  # Include user name
+#                 # 'messages': []
+#             }
+
+#             # for message in chat.messages.all():
+#             #     message_data = {
+#             #         'message': message.content,
+#             #         'timestamp': message.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+#             #     }
+
+#             #     chat_data['messages'].append(message_data)
+
+#             response_data.append(chat_data)
+
+#         return Response(response_data)
+
+
 class ChatListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        user_profile = UserProfile.objects.get(name= 'Sarah Park')
-
         # Get chat list for the user
-        chat_list = Chat.objects.filter(participants=user_profile).order_by('-id')
+        chat_list = Chat.objects.filter(participants__user=request.user).order_by('-id')
 
         # Prepare the response data
         response_data = []
         for chat in chat_list:
             chat_data = {
                 'chat_id': chat.chat_id,
-                'messages': []
+                'user_names': list(chat.get_user_names()),  # Convert to list for serialization
             }
-
-            for message in chat.messages.all():
-                message_data = {
-                    'message': message.content,
-                    'timestamp': message.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-                    'user_id': message.sender.user.id,
-                    'username': message.sender.name,
-                    'profile_pic': request.build_absolute_uri(message.sender.profile_pic.url) if message.sender.profile_pic else None,
-                }
-
-                chat_data['messages'].append(message_data)
-
             response_data.append(chat_data)
 
         return Response(response_data)
+    
+class ChatDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, chat_id, *args, **kwargs):
+        try:
+            chat = Chat.objects.get(chat_id=chat_id)
+
+            
+            # if request.user not in chat.participants.all():
+            #     return Response({'error': 'Unauthorized access to chat'}, status=403)
+
+            
+            messages = Message.objects.filter(chat=chat)
+
+            # Prepare the response data
+            response_data = {
+                'chat_id': chat.chat_id,
+                'participants': [{'name': participant.name, 'profile_pic': request.build_absolute_uri(participant.profile_pic.url) if participant.profile_pic else None} for participant in chat.participants.all()],
+                'messages': [{'content': message.content, 'timestamp': message.timestamp} for message in messages],
+            }
+
+            return Response(response_data)
+        except Chat.DoesNotExist:
+            return Response({'error': 'Chat not found'}, status=404)

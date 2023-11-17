@@ -16,6 +16,9 @@ class Chat(models.Model):
 
     def __str__(self):
         return f"Chat {self.chat_id}"
+    
+    def get_user_names(self):
+        return self.participants.values_list('name', flat=True)
 
 class Message(models.Model):
     chat = models.ForeignKey(Chat, related_name='messages', on_delete=models.CASCADE, default=1)
